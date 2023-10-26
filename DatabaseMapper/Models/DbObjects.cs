@@ -6,21 +6,28 @@ using System.Threading.Tasks;
 
 namespace DatabaseMapper.Models
 {
-    public class Tables
+    public class Table
     {
-        public string TableName { get; set; }
+        public String tableName { get; set; }
 
-        public List<Column> Columns { get; set; }
+        public List<Column> columns { get; set; }
 
+        public Table() { }
+        public Table(String tableName, List<Column> columns)
+        {
+            this.tableName = tableName;
+            this.columns = columns;
+        }
     }
 
     public class Column
     {
-        public string name { get; set; }
-        public string type { get; set; }
-        public string length { get; set; }
-        public string nullable { get; set; }
+        public String name { get; set; }
+        public String type { get; set; }
+        public int length { get; set; }
+        public String nullable { get; set; }
         public int is_identity { get; set; }
+        public String is_clustered {  get; set; }
     }
 
 }

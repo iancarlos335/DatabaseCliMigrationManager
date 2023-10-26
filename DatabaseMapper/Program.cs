@@ -9,12 +9,23 @@ class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine("Hello, World!");
-        SqlConnection connection = new DatabaseConnection().startConnection();
+        try
+        {
+            SqlConnection connection = new DatabaseConnection().startConnection();
+            connection.Open();
 
-        List<Tables> tables = new MigrationsCreation().getSysTables(connection);
+            Console.WriteLine("Hello, World!");
+            List<Table> tables = new MigrationsCreation().getSysTables(connection);
 
-        tables.ForEach(t => Console.WriteLine(t.ToString()));
+            new MigrationsCreation().createTablesMigrationScripts(tables);
+
+            connection.Close();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erro de conexão com o banco.");
+            Console.WriteLine(ex.Message);
+        }
     }
 }
 

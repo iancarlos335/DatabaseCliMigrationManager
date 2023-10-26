@@ -1,9 +1,12 @@
 ﻿using Dapper;
 using DatabaseMapper.Models;
+using DatabaseMapper.Utils;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,33 +14,82 @@ namespace DatabaseMapper.Business
 {
     public class MigrationsCreation
     {
-        public List<Tables> getSysTables(SqlConnection sqlConnection)
+        public List<Table> getSysTables(SqlConnection sqlConnection)
         {
-            try
+            string sqlGetAllTableNames = "SELECT NAME as tableName FROM SYS.TABLES";
+            List<String> tablesName = sqlConnection.Query<String>(sqlGetAllTableNames).ToList();
+
+            List<Table> tables = new List<Table>();
+
+            tablesName.ForEach(tableName =>
             {
-                sqlConnection.Open();
-                string sqlGetAllTableNames = "SELECT NAME FROM SYS.TABLES";
+                string sqlGetTableColumns = "SELECT isc.COLUMN_NAME as name, isc.DATA_TYPE as type, isc.CHARACTER_MAXIMUM_LENGTH as length," +
+                    " isc.IS_NULLABLE as nullable, sc.is_identity, si.type_desc as is_clustered" +
+                    " from SYS.TABLES st" +
+                    " INNER JOIN INFORMATION_SCHEMA.COLUMNS isc ON st.NAME = isc.TABLE_NAME" +
+                    " INNER JOIN SYS.COLUMNS sc ON st.OBJECT_ID = sc.OBJECT_ID" +
+                    " INNER JOIN SYS.INDEXES si ON st.OBJECT_ID = si.OBJECT_ID" +
+                    $@" WHERE isc.TABLE_NAME = '{tableName}' and sc.NAME = ISC.COLUMN_NAME";
 
-                List<String> tableNames = sqlConnection.Query<String>(sqlGetAllTableNames).ToList();
+                List<Column> tablesColumns = sqlConnection.Query<Column>(sqlGetTableColumns).ToList();
 
-                string sqlGetTableDescriptions = ""
-                List<Column> tables = sqlConnection.Query<Column>(sqlGetAllTableNames).ToList();
+                tables.Add(new Table(tableName, tablesColumns));
+            });
 
-                tables.ForEach(t =>
+            return tables;
+        }
+
+        public void createTablesMigrationScripts(List<Table> tables)
+        {
+
+            String rootFolder = Directory.GetCurrentDirectory();
+            String tablesPath = Path.Combine(rootFolder, "tables");
+            String openFolder = Path.Join(tablesPath);
+
+            StringBuilder script = new StringBuilder();
+
+            FileManager file = new FileManager();
+            file.CreateDirectory(tablesPath);
+
+            foreach (Table table in tables)
+            {
+                foreach (Column column in table.columns)
                 {
-                    string columnTables = $@"SELECT COLUMN_NAME as name,DATA_TYPE as type, CHARACTER_MAXIMUM_LENGTH as length, IS_NULLABLE as nullable, 
-                                            (SELECT 1 FROM SYS.COLUMNS WHERE NAME = COLUMN_NAME AND IS_IDENTITY = 1) as is_identity 
-                                            FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{{t.TableName}}'";
-                });
-                
-                sqlConnection.Close();
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Erro de conexão com o banco.");
-                Console.WriteLine(ex.Message);
-                return null;
+                    //validate the sql hash file 
+                    //if (table.tableName.exists)
+                    //{
+                    if (column.is_identity.Equals(0))
+                    {
+                        string nullable = column.nullable.Equals("YES") ? "NULLABLE" : "";
+
+                        script.AppendLine($@"IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = '{table.tableName}' AND COLUMN_NAME = '{column.name}')");
+                        script.AppendLine("BEGIN");
+                        script.AppendLine($@"ALTER TABLE {table.tableName} ");
+                        script.AppendLine($@"ADD {column.name} {column.type}({column.length}) {nullable}");
+                        script.AppendLine("END");
+                    }
+                    else
+                    {
+                        string nullable = column.nullable.Equals("YES") ? "NULLABLE" : "";
+                        string is_clustered = column.is_clustered.Equals("CLUSTERED") ? "CLUSTERED" : "";
+
+                        script.AppendLine($@"IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = '{table.tableName}' AND COLUMN_NAME = '{column.name}')");
+                        script.AppendLine($@"BEGIN");
+                        script.AppendLine($@"ALTER TABLE {table.tableName} ADD {column.name} {column.type} IDENTITY(1,1) {nullable}");
+                        script.AppendLine($@"ALTER TABLE {table.tableName}");
+                        script.AppendLine($@"ADD CONSTRAINT PK_{table.tableName}_{column.name} PRIMARY KEY {is_clustered} ({column.name})");
+                        script.AppendLine($@"END");
+                    }
+                    //}
+                    //else
+                    //{
+
+                    //}
+                    script.AppendLine();
+                }
+
+                file.CreateTextFile(openFolder, $@"Create_Table_{table.tableName}_{file.JavascriptGetTime()}.sql", script.ToString());
+                script.Clear();
             }
         }
     }
