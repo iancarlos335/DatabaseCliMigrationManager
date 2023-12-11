@@ -12,11 +12,14 @@ namespace DatabaseMapper.Models
 
         public List<Column> columns { get; set; }
 
+        public DateTime modify_date { get; set; }
+
         public Table() { }
-        public Table(String tableName, List<Column> columns)
+        public Table(String tableName, List<Column> columns, DateTime modify_date)
         {
             this.tableName = tableName;
             this.columns = columns;
+            this.modify_date = modify_date;
         }
     }
 

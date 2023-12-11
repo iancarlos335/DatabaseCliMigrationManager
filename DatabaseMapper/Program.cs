@@ -11,13 +11,15 @@ class Program
     {
         try
         {
-            SqlConnection connection = new DatabaseConnection().startConnection();
-            connection.Open();
-
             Console.WriteLine("Hello, World!");
-            List<Table> tables = new MigrationsCreation().getSysTables(connection);
+            SqlConnection connection = new DatabaseConnection().startConnection();
+            connection.Open();            
 
-            new MigrationsCreation().createTablesMigrationScripts(tables);
+            MigrationsCreation migrations = new MigrationsCreation();
+            List<Table> tables = migrations.getSysTables(connection);
+
+            migrations.createTablesMigrationScripts(tables);
+            migrations.updateTablesMigrationScripts(tables);
 
             connection.Close();
         }
