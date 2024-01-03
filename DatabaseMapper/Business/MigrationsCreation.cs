@@ -1,21 +1,14 @@
 ﻿using Dapper;
 using DatabaseMapper.Models;
 using DatabaseMapper.Utils;
-using System;
-using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace DatabaseMapper.Business
 {
     public class MigrationsCreation
     {
-        public List<Table> getSysTables(SqlConnection sqlConnection)
+        public List<Table> getSysTablesToCreateMigrations(SqlConnection sqlConnection)
         {
             string sqlGetAllTableNames = "SELECT NAME as tableName FROM SYS.TABLES";
             List<String> tablesName = sqlConnection.Query<String>(sqlGetAllTableNames).ToList();
@@ -42,8 +35,10 @@ namespace DatabaseMapper.Business
         }
 
 
-        public void createTablesMigrationScripts(List<Table> tables)
+        public List<Table> createTablesMigrationScripts(SqlConnection sqlConnection)
         {
+            List<Table> tables = getSysTablesToCreateMigrations(sqlConnection);
+
             String rootFolder = Directory.GetCurrentDirectory();
             String tablesPath = Path.Combine(rootFolder, "tables");
             String finalFolderPath = Path.Join(tablesPath);
@@ -85,28 +80,87 @@ namespace DatabaseMapper.Business
                         script.AppendLine();
                     }
 
-                    file.CreateTextFile(finalFolderPath, $@"Create_Table_{table.tableName}_{file.JavascriptGetTime()}.sql", script.ToString());
+                    file.CreateTextFile(finalFolderPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow.ToString("yyyy-MM-dd_HH_mm_ss_fff")}.sql", script.ToString());
                     script.Clear();
                 }
-            } catch (SqlException ex)
+
+                return tables;
+            }
+            catch (SqlException ex)
             {
                 Console.Error.WriteLine(ex.Message);
-            }            
+                return tables;
+            }
+        }
+
+        public List<Table> createAndUpdateMigrations(SqlConnection sqlConnection)
+        {
+            string rootFolder = Directory.GetCurrentDirectory();
+            string tablesPath = Path.Combine(rootFolder, "tables");
+            string finalFolderPath = Path.Join(tablesPath);
+
+            FileManager file = new FileManager();
+
+            var script = new StringBuilder();
+            string firstLine;
+
+            var tables = new List<Table>();
+
+            if (Directory.GetFiles(finalFolderPath).Length == 0)
+            {
+                tables = createTablesMigrationScripts(sqlConnection);
+            }
+            else
+            {
+                var allTables = sqlConnection.Query<Table>("SELECT NAME as tableName, modify_date FROM SYS.TABLES").ToList();
+                var updatableTableNames = new List<Table>();
+
+                try
+                {
+                    foreach (Table table in allTables)
+                    {
+                        foreach (string filePath in Directory.GetFiles(finalFolderPath))
+                        {
+                            if (filePath.Contains($@"Create_Table_{table.tableName}"))
+                            {
+                                firstLine = File.ReadLines(Path.Combine(filePath)).First();
+                                //CURRENT TIME - table.modify_date
+                                if (!firstLine.Contains(table.modify_date.ToString()))
+                                {
+                                    tables.Add(table);
+                                    file.DeleteFile(filePath);
+                                }                                    
+                            }
+                        }
+                    }                    
+
+                    
+
+                    if (tables.Count > 0)
+                    {
+                        updateTablesMigrationScripts(tables);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex.Message + "Deu erro");
+                }
+            }
+
+            return tables;
         }
 
         public void updateTablesMigrationScripts(List<Table> tables)
         {
-
-            String rootFolder = Directory.GetCurrentDirectory();
-            String tablesPath = Path.Combine(rootFolder, "tables");
-            String finalFolderPath = Path.Join(tablesPath);
+            string rootFolder = Directory.GetCurrentDirectory();
+            string tablesPath = Path.Combine(rootFolder, "tables");
+            string finalFolderPath = Path.Join(tablesPath);
 
             FileManager file = new FileManager();
-            file.CreateDirectory(tablesPath);
 
             StringBuilder script = new StringBuilder();
 
-            String firstLine;
+            string firstLine;
             try
             {
                 foreach (Table table in tables)
@@ -116,11 +170,12 @@ namespace DatabaseMapper.Business
                         if (filePath.Contains($@"Create_Table_{table.tableName}"))
                         {
                             firstLine = File.ReadLines(Path.Combine(filePath)).First();
+                            //CURRENT TIME - table.modify_date
                             if (firstLine.Contains(table.modify_date.ToString()))
                             {
                                 foreach (Column column in table.columns)
                                 {
-                                    script.AppendLine($@"--//// Modified at {table.modify_date}////--");                                    
+                                    script.AppendLine($@"--//// Modified at {table.modify_date}////--");
                                     if (column.is_identity.Equals(0))
                                     {
                                         string nullable = column.nullable.Equals("YES") ? "NULLABLE" : "";
@@ -145,8 +200,7 @@ namespace DatabaseMapper.Business
                                     }
                                     script.AppendLine();
                                 }
-
-                                file.CreateTextFile(finalFolderPath, $@"Create_Table_{table.tableName}_{file.JavascriptGetTime()}.sql", script.ToString());
+                                file.CreateTextFile(finalFolderPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow.ToString("yyyy-MM-dd_HH_mm_ss_fff")}.sql", script.ToString());
                                 script.Clear();
                             }
                             else
@@ -159,6 +213,11 @@ namespace DatabaseMapper.Business
             {
                 Console.Error.WriteLine(excpt.Message);
             };
+        }
+
+        public void execMigration()
+        {
+
         }
     }
 }

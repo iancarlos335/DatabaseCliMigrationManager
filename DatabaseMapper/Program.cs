@@ -1,7 +1,6 @@
 ﻿using DatabaseMapper.Business;
 using DatabaseMapper;
 using System.Data.SqlClient;
-using System.Runtime.CompilerServices;
 using DatabaseMapper.Models;
 // See https://aka.ms/new-console-template for more information
 
@@ -13,20 +12,22 @@ class Program
         {
             Console.WriteLine("Hello, World!");
             SqlConnection connection = new DatabaseConnection().startConnection();
-            connection.Open();            
-
+            connection.Open();
             MigrationsCreation migrations = new MigrationsCreation();
-            List<Table> tables = migrations.getSysTables(connection);
 
-            migrations.createTablesMigrationScripts(tables);
-            migrations.updateTablesMigrationScripts(tables);
+            List<Table> updatedTables = migrations.createAndUpdateMigrations(connection);
+
+            Console.WriteLine("Tabelas alteradas:");
+            foreach (var table in updatedTables)
+            {
+                Console.WriteLine(table.tableName);
+            }
 
             connection.Close();
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro de conexão com o banco.");
-            Console.WriteLine(ex.Message);
+            Console.Error.WriteLine("Error: " + ex.Message);
         }
     }
 }
