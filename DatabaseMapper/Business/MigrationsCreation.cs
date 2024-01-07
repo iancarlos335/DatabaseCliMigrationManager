@@ -8,45 +8,57 @@ namespace DatabaseMapper.Business
 {
     public class MigrationsCreation
     {
-        public List<Table> getSysTablesToCreateMigrations(SqlConnection sqlConnection)
+        public List<Table> getSysTablesToCreateMigrations(SqlConnection sqlConnection, List<Table> tables)
         {
-            string sqlGetAllTableNames = "SELECT NAME as tableName FROM SYS.TABLES";
-            List<String> tablesName = sqlConnection.Query<String>(sqlGetAllTableNames).ToList();
+            string sqlGetAllTableNames = "";
+            var tablesName = new List<string>();
+            var returnTables = new List<Table>();
 
-            List<Table> tables = new List<Table>();
+            if (tables.Count == 0)
+            {
+                sqlGetAllTableNames = "SELECT NAME as tableName FROM SYS.TABLES";
+                tablesName = sqlConnection.Query<string>(sqlGetAllTableNames).ToList();
+            }
+            else
+                tables.ForEach(t => { tablesName.Add(t.tableName); });
+
+
 
             tablesName.ForEach(tableName =>
-            {
-                string sqlGetTableColumns = "SELECT isc.COLUMN_NAME as name, isc.DATA_TYPE as type, isc.CHARACTER_MAXIMUM_LENGTH as length," +
-                    " isc.IS_NULLABLE as nullable, sc.is_identity, si.type_desc as is_clustered" +
-                    " from SYS.TABLES st" +
-                    " INNER JOIN INFORMATION_SCHEMA.COLUMNS isc ON st.NAME = isc.TABLE_NAME" +
-                    " INNER JOIN SYS.COLUMNS sc ON st.OBJECT_ID = sc.OBJECT_ID" +
-                    " INNER JOIN SYS.INDEXES si ON st.OBJECT_ID = si.OBJECT_ID" +
-                    $@" WHERE isc.TABLE_NAME = '{tableName}' and sc.NAME = ISC.COLUMN_NAME";
+                {
+                    string sqlGetTableColumns = "SELECT isc.COLUMN_NAME as name, isc.DATA_TYPE as type, isc.CHARACTER_MAXIMUM_LENGTH as length," +
+                        " isc.IS_NULLABLE as nullable, sc.is_identity, si.type_desc as is_clustered" +
+                        " from SYS.TABLES st" +
+                        " INNER JOIN INFORMATION_SCHEMA.COLUMNS isc ON st.NAME = isc.TABLE_NAME" +
+                        " INNER JOIN SYS.COLUMNS sc ON st.OBJECT_ID = sc.OBJECT_ID" +
+                        " INNER JOIN SYS.INDEXES si ON st.OBJECT_ID = si.OBJECT_ID" +
+                        $@" WHERE isc.TABLE_NAME = '{tableName}' and sc.NAME = ISC.COLUMN_NAME";
 
-                List<Column> tablesColumns = sqlConnection.Query<Column>(sqlGetTableColumns).ToList();
-                DateTime modifiedDate = sqlConnection.Query<DateTime>($@"SELECT MODIFY_DATE FROM SYS.TABLES WHERE NAME LIKE '{tableName}'").FirstOrDefault();
+                    List<Column> tablesColumns = sqlConnection.Query<Column>(sqlGetTableColumns).ToList();
+                    DateTime modifiedDate = sqlConnection.Query<DateTime>($@"SELECT MODIFY_DATE FROM SYS.TABLES WHERE NAME LIKE '{tableName}'").FirstOrDefault();
 
-                tables.Add(new Table(tableName, tablesColumns, modifiedDate));
-            });
+                    returnTables.Add(new Table(tableName, tablesColumns, modifiedDate));
+                });
 
-            return tables;
+            return returnTables;
         }
 
-
-        public List<Table> createTablesMigrationScripts(SqlConnection sqlConnection)
+        public List<Table> createOrUpdateTablesMigrationScripts(SqlConnection sqlConnection, List<Table> tables)
         {
-            List<Table> tables = getSysTablesToCreateMigrations(sqlConnection);
+            var rootFolder = Directory.GetCurrentDirectory();
+            var tablesPath = Path.Combine(rootFolder, "tables");
+            var finalFolderPath = Path.Join(tablesPath);
 
-            String rootFolder = Directory.GetCurrentDirectory();
-            String tablesPath = Path.Combine(rootFolder, "tables");
-            String finalFolderPath = Path.Join(tablesPath);
+            var file = new FileManager();
 
-            FileManager file = new FileManager();
-            file.CreateDirectory(tablesPath);
+            if (tables.Count == 0)
+            {
+                file.CreateDirectory(tablesPath);
+            }
 
-            StringBuilder script = new StringBuilder();
+            tables = getSysTablesToCreateMigrations(sqlConnection, tables);
+
+            var script = new StringBuilder();
 
             try
             {
@@ -99,22 +111,26 @@ namespace DatabaseMapper.Business
             string tablesPath = Path.Combine(rootFolder, "tables");
             string finalFolderPath = Path.Join(tablesPath);
 
-            FileManager file = new FileManager();
+            var file = new FileManager();
 
             var script = new StringBuilder();
             string firstLine;
 
             var tables = new List<Table>();
+            var notCreatedTables = new List<Table>();
+            var allTables = sqlConnection.Query<Table>("SELECT NAME as tableName, modify_date FROM SYS.TABLES").ToList();
 
-            if (Directory.GetFiles(finalFolderPath).Length == 0)
+            if (!Directory.GetDirectories(rootFolder).Contains("tables"))
             {
-                tables = createTablesMigrationScripts(sqlConnection);
+                tables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
+            }
+            else if (Directory.GetFiles(finalFolderPath).Length == 0)
+            {
+                notCreatedTables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
             }
             else
             {
-                var allTables = sqlConnection.Query<Table>("SELECT NAME as tableName, modify_date FROM SYS.TABLES").ToList();
-                var updatableTableNames = new List<Table>();
-
+                var updatableTableNames = new List<string>();
                 try
                 {
                     foreach (Table table in allTables)
@@ -124,21 +140,35 @@ namespace DatabaseMapper.Business
                             if (filePath.Contains($@"Create_Table_{table.tableName}"))
                             {
                                 firstLine = File.ReadLines(Path.Combine(filePath)).First();
-                                //CURRENT TIME - table.modify_date
                                 if (!firstLine.Contains(table.modify_date.ToString()))
                                 {
                                     tables.Add(table);
                                     file.DeleteFile(filePath);
-                                }                                    
+                                }
+                                updatableTableNames.Add(table.tableName);
                             }
                         }
-                    }                    
+                    }
 
-                    
+                    if (updatableTableNames.Count != allTables.Count)
+                    {
+                        allTables.ForEach(t =>
+                        {
+                            if (!updatableTableNames.Contains(t.tableName))
+                            {
+                                notCreatedTables.Add(t);
+                            }
+
+                        });
+                    }
 
                     if (tables.Count > 0)
                     {
-                        updateTablesMigrationScripts(tables);
+                        tables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
+                    }
+                    if (notCreatedTables.Count > 0)
+                    {
+                        tables = createOrUpdateTablesMigrationScripts(sqlConnection, notCreatedTables);
                     }
                 }
                 catch (Exception ex)
@@ -148,71 +178,6 @@ namespace DatabaseMapper.Business
             }
 
             return tables;
-        }
-
-        public void updateTablesMigrationScripts(List<Table> tables)
-        {
-            string rootFolder = Directory.GetCurrentDirectory();
-            string tablesPath = Path.Combine(rootFolder, "tables");
-            string finalFolderPath = Path.Join(tablesPath);
-
-            FileManager file = new FileManager();
-
-            StringBuilder script = new StringBuilder();
-
-            string firstLine;
-            try
-            {
-                foreach (Table table in tables)
-                {
-                    foreach (string filePath in Directory.GetFiles(finalFolderPath))
-                    {
-                        if (filePath.Contains($@"Create_Table_{table.tableName}"))
-                        {
-                            firstLine = File.ReadLines(Path.Combine(filePath)).First();
-                            //CURRENT TIME - table.modify_date
-                            if (firstLine.Contains(table.modify_date.ToString()))
-                            {
-                                foreach (Column column in table.columns)
-                                {
-                                    script.AppendLine($@"--//// Modified at {table.modify_date}////--");
-                                    if (column.is_identity.Equals(0))
-                                    {
-                                        string nullable = column.nullable.Equals("YES") ? "NULLABLE" : "";
-
-                                        script.AppendLine($@"IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = '{table.tableName}' AND COLUMN_NAME = '{column.name}')");
-                                        script.AppendLine("BEGIN");
-                                        script.AppendLine($@"ALTER TABLE {table.tableName} ");
-                                        script.AppendLine($@"ADD {column.name} {column.type}({column.length}) {nullable}");
-                                        script.AppendLine("END");
-                                    }
-                                    else
-                                    {
-                                        string nullable = column.nullable.Equals("YES") ? "NULLABLE" : "";
-                                        string is_clustered = column.is_clustered.Equals("CLUSTERED") ? "CLUSTERED" : "";
-
-                                        script.AppendLine($@"IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = '{table.tableName}' AND COLUMN_NAME = '{column.name}')");
-                                        script.AppendLine($@"BEGIN");
-                                        script.AppendLine($@"ALTER TABLE {table.tableName} ADD {column.name} {column.type} IDENTITY(1,1) {nullable}");
-                                        script.AppendLine($@"ALTER TABLE {table.tableName}");
-                                        script.AppendLine($@"ADD CONSTRAINT PK_{table.tableName}_{column.name} PRIMARY KEY {is_clustered} ({column.name})");
-                                        script.AppendLine($@"END");
-                                    }
-                                    script.AppendLine();
-                                }
-                                file.CreateTextFile(finalFolderPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow.ToString("yyyy-MM-dd_HH_mm_ss_fff")}.sql", script.ToString());
-                                script.Clear();
-                            }
-                            else
-                                continue;
-                        }
-                    }
-                }
-            }
-            catch (System.Exception excpt)
-            {
-                Console.Error.WriteLine(excpt.Message);
-            };
         }
 
         public void execMigration()
