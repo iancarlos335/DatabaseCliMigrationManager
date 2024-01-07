@@ -2,14 +2,13 @@
 {
     public class Table
     {
-        public String tableName { get; set; }
+        public string tableName { get; set; }
 
         public List<Column> columns { get; set; }
 
         public DateTime modify_date { get; set; }
 
-        public Table() { }
-        public Table(String tableName, List<Column> columns, DateTime modify_date)
+        public Table(string tableName, List<Column> columns, DateTime modify_date)
         {
             this.tableName = tableName;
             this.columns = columns;
@@ -19,12 +18,11 @@
 
     public class Column
     {
-        public String name { get; set; }
-        public String type { get; set; }
+        public string name { get; set; }
+        public string type { get; set; }
         public int length { get; set; }
-        public String nullable { get; set; }
+        public string nullable { get; set; }
         public int is_identity { get; set; }
-        public String is_clustered {  get; set; }
+        public string is_clustered { get; set; }
     }
-
 }
