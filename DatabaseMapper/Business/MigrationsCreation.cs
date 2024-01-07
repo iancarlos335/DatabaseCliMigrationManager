@@ -46,8 +46,7 @@ namespace DatabaseMapper.Business
         public List<Table> createOrUpdateTablesMigrationScripts(SqlConnection sqlConnection, List<Table> tables)
         {
             var rootFolder = Directory.GetCurrentDirectory();
-            var tablesPath = Path.Combine(rootFolder, "tables");
-            var finalFolderPath = Path.Join(tablesPath);
+            var tablesPath = Path.Join(rootFolder, "tables");
 
             var file = new FileManager();
 
@@ -64,13 +63,13 @@ namespace DatabaseMapper.Business
             {
                 foreach (Table table in tables)
                 {
+                    script.AppendLine($@"--//// Modified at {table.modify_date}////--");
+
                     foreach (Column column in table.columns)
                     {
-                        script.AppendLine($@"--//// Modified at {table.modify_date}////--");
                         if (column.is_identity.Equals(0))
                         {
                             string nullable = column.nullable.Equals("YES") ? "NULLABLE" : "";
-
                             script.AppendLine($@"IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS where TABLE_NAME = '{table.tableName}' AND COLUMN_NAME = '{column.name}')");
                             script.AppendLine("BEGIN");
                             script.AppendLine($@"ALTER TABLE {table.tableName} ");
@@ -92,7 +91,7 @@ namespace DatabaseMapper.Business
                         script.AppendLine();
                     }
 
-                    file.CreateTextFile(finalFolderPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow.ToString("yyyy-MM-dd_HH_mm_ss_fff")}.sql", script.ToString());
+                    file.CreateTextFile(tablesPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow.ToString("yyyy-MM-dd_HH_mm_ss_fff")}.sql", script.ToString());
                     script.Clear();
                 }
 
@@ -109,7 +108,6 @@ namespace DatabaseMapper.Business
         {
             string rootFolder = Directory.GetCurrentDirectory();
             string tablesPath = Path.Combine(rootFolder, "tables");
-            string finalFolderPath = Path.Join(tablesPath);
 
             var file = new FileManager();
 
@@ -120,11 +118,11 @@ namespace DatabaseMapper.Business
             var notCreatedTables = new List<Table>();
             var allTables = sqlConnection.Query<Table>("SELECT NAME as tableName, modify_date FROM SYS.TABLES").ToList();
 
-            if (!Directory.GetDirectories(rootFolder).Contains("tables"))
+            if (!Directory.GetDirectories(rootFolder).Contains(tablesPath))
             {
                 tables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
             }
-            else if (Directory.GetFiles(finalFolderPath).Length == 0)
+            else if (Directory.GetFiles(tablesPath).Length == 0)
             {
                 notCreatedTables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
             }
@@ -135,7 +133,7 @@ namespace DatabaseMapper.Business
                 {
                     foreach (Table table in allTables)
                     {
-                        foreach (string filePath in Directory.GetFiles(finalFolderPath))
+                        foreach (string filePath in Directory.GetFiles(tablesPath))
                         {
                             if (filePath.Contains($@"Create_Table_{table.tableName}"))
                             {
