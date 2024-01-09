@@ -25,4 +25,38 @@
         public int is_identity { get; set; }
         public string is_clustered { get; set; }
     }
+
+    public class Procedure
+    {
+        public string name { get; set; }
+        public string modify_date { get; set; }
+        public string content { get; set; }
+    }
+    ^public class Function
+    {
+        public string name { get; set; }
+        public string modify_date { get; set; }
+        public string content { get; set; }
+    }
+
+    public class Trigger
+    {
+        public string name { get; set; }
+        public string modify_date { get; set; }
+        public string content { get; set; }
+    }
+
+    public class View
+    {
+        public  string name { get; set; }
+        public string modify_date { get; set; }
+        public string content { get; set; }
+    }
+
+    public class Synomn
+    {
+        public string name { get; set; }
+        public string modify_date { get; set;}
+        public string content { get; set;}
+    }
 }

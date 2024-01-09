@@ -32,7 +32,7 @@ namespace DatabaseMapper.Repositories
                     " INNER JOIN SYS.INDEXES si ON st.OBJECT_ID = si.OBJECT_ID" +
                     $@" WHERE isc.TABLE_NAME = '{tableName}' and sc.NAME = ISC.COLUMN_NAME";
 
-                List<Column> tablesColumns = sqlConnection.Query<Column>(sqlGetTableColumns).ToList();
+                List<Column> tablesColumns = sqlConnection.Query<Column>(sqlGetTableColumns).ToList(); //TODO update that query to be more performable and fast.
                 DateTime modifiedDate = sqlConnection.Query<DateTime>($@"SELECT MODIFY_DATE FROM SYS.TABLES WHERE NAME LIKE '{tableName}'").FirstOrDefault();
 
                 returnTables.Add(new Table(tableName, tablesColumns, modifiedDate));
@@ -41,9 +41,39 @@ namespace DatabaseMapper.Repositories
             return returnTables;
         }
 
-        public List<Table> getAllTables(SqlConnection sqlConnection)
+        public List<Table> getAllTableNamesAndModifyDates(SqlConnection sqlConnection)
         {
             return sqlConnection.Query<Table>("SELECT NAME as tableName, modify_date FROM SYS.TABLES").ToList();
+        }
+
+        public List<Procedure> getAllProceduresNamesAndModifyDates(SqlConnection sqlConnection)
+        {
+            return sqlConnection.Query<Procedure>("SELECT NAME, modify_date FROM SYS.PROCEDURES").ToList();
+        }
+
+        public List<Function> getAllFunctionsNamesAndModifyDates(SqlConnection sqlConnection)
+        {
+            return sqlConnection.Query<Function>("SELECT name, modify_date FROM SYS.OBJECTS WHERE TYPE IN ('FN', 'FS', 'FT', 'AF', 'IF', 'TF')").ToList();
+        }
+
+        public List<Trigger> getAllTriggersNamesAndModifyDates(SqlConnection sqlConnection)
+        {
+            return sqlConnection.Query<Trigger>("SELECT name, modify_date FROM SYS.TRIGGERS").ToList();
+        }
+
+        public List<View> getAllViewsNamesAndModifyDates(SqlConnection sqlConnection)
+        {
+            return sqlConnection.Query<View>("SELECT name, modify_date FROM SYS.VIEWS").ToList();
+        }
+
+        public List<Synomn> getAllSynomnsNamesAndModifyDates(SqlConnection sqlConnection)
+        {
+            return sqlConnection.Query<Synomn>("SELECT name, modify_date FROM SYS.SYNONYMS").ToList();
+        }
+
+        public string[] spHelpTextContent(SqlConnection sqlConnection, string databaseObject)
+        {
+            return sqlConnection.Query<string>($@"sp_helptext {databaseObject}").ToArray();
         }
     }
 }
