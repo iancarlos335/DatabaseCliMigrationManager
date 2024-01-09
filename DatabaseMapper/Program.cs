@@ -2,6 +2,7 @@
 using DatabaseMapper;
 using System.Data.SqlClient;
 using DatabaseMapper.Models;
+using DatabaseMapper.Utils;
 // See https://aka.ms/new-console-template for more information
 
 class Program
@@ -9,13 +10,21 @@ class Program
     static void Main(string[] args)
     {
         try
-        {
-            Console.WriteLine("Hello, World!");
-            SqlConnection connection = new DatabaseConnection().startConnection();
-            connection.Open();
-            MigrationsCreation migrations = new MigrationsCreation();
+        {            
+            var tablesBusiness = new TablesBusiness();
+            var fileManager = new FileManager();
+            var connection = new DatabaseConnection().startConnection();
 
-            List<Table> updatedTables = migrations.createAndUpdateMigrations(connection);
+            Console.WriteLine("Hello, World!");            
+            connection.Open();
+
+            var sourcePath = Directory.GetCurrentDirectory();
+            var rootFolder = Path.Join(sourcePath, "scripts");
+
+            if (!Directory.GetDirectories(sourcePath).Contains("scripts"))
+                fileManager.CreateDirectory(rootFolder);
+
+            List<Table> updatedTables = tablesBusiness.createAndUpdateTableMigrations(connection, rootFolder);
 
             Console.WriteLine("Tabelas alteradas:");
             foreach (var table in updatedTables)

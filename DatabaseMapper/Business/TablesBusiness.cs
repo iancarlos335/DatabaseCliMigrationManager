@@ -6,19 +6,15 @@ using System.Text;
 
 namespace DatabaseMapper.Business
 {
-    public class MigrationsCreation
+    public class TablesBusiness
     {
-        public List<Table> createOrUpdateTablesMigrationScripts(SqlConnection sqlConnection, List<Table> tables)
+        public List<Table> tablesMigrationScriptsImplementation(SqlConnection sqlConnection, List<Table> tables, string rootFolder)
         {
-            var rootFolder = Directory.GetCurrentDirectory();
             var tablesPath = Path.Join(rootFolder, "tables");
-
-            var file = new FileManager();
+            var fileManager = new FileManager();
 
             if (tables.Count == 0)
-            {
-                file.CreateDirectory(tablesPath);
-            }
+                fileManager.CreateDirectory(tablesPath);
 
             tables = new MigrationsRepository().getSysTablesToCreateMigrations(sqlConnection, tables);
 
@@ -56,40 +52,36 @@ namespace DatabaseMapper.Business
                         script.AppendLine();
                     }
 
-                    file.CreateTextFile(tablesPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow:yyyy-MM-dd_HH_mm_ss_fff}.sql", script.ToString());
+                    fileManager.CreateTextFile(tablesPath, $@"Create_Table_{table.tableName}_{DateTime.UtcNow:yyyy-MM-dd_HH_mm_ss_fff}.sql", script.ToString());
                     script.Clear();
-                }
-
-                return tables;
+                }                
             }
             catch (SqlException ex)
             {
-                Console.Error.WriteLine(ex.Message);
-                return tables;
+                Console.Error.WriteLine(ex.Message);                
             }
+            return tables;
         }
 
-        public List<Table> createAndUpdateMigrations(SqlConnection sqlConnection)
+        public List<Table> createAndUpdateTableMigrations(SqlConnection sqlConnection, string rootFolder)
         {
-            string rootFolder = Directory.GetCurrentDirectory();
-            string tablesPath = Path.Combine(rootFolder, "tables");
+            string tablesPath = Path.Join(rootFolder, "tables");
 
-            var file = new FileManager();
+            var fileManager = new FileManager();
 
-            var script = new StringBuilder();
             string firstLine;
 
             var tables = new List<Table>();
             var notCreatedTables = new List<Table>();
-            var allTables = new MigrationsRepository().getAllTables(sqlConnection);
+            var allTables = new MigrationsRepository().getAllTableNamesAndModifyDates(sqlConnection);
 
             if (!Directory.GetDirectories(rootFolder).Contains(tablesPath))
             {
-                tables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
+                tables = tablesMigrationScriptsImplementation(sqlConnection, tables, rootFolder);
             }
             else if (Directory.GetFiles(tablesPath).Length == 0)
             {
-                notCreatedTables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
+                notCreatedTables = tablesMigrationScriptsImplementation(sqlConnection, tables, rootFolder);
             }
             else
             {
@@ -106,7 +98,7 @@ namespace DatabaseMapper.Business
                                 if (!firstLine.Contains(table.modify_date.ToString()))
                                 {
                                     tables.Add(table);
-                                    file.DeleteFile(filePath);
+                                    fileManager.DeleteFile(filePath);
                                 }
                                 updatableTableNames.Add(table.tableName);
                             }
@@ -127,11 +119,11 @@ namespace DatabaseMapper.Business
 
                     if (tables.Count > 0)
                     {
-                        tables = createOrUpdateTablesMigrationScripts(sqlConnection, tables);
+                        tables = tablesMigrationScriptsImplementation(sqlConnection, tables, rootFolder);
                     }
                     if (notCreatedTables.Count > 0)
                     {
-                        tables = createOrUpdateTablesMigrationScripts(sqlConnection, notCreatedTables);
+                        tables = tablesMigrationScriptsImplementation(sqlConnection, notCreatedTables, rootFolder);
                     }
                 }
                 catch (Exception ex)
@@ -139,13 +131,7 @@ namespace DatabaseMapper.Business
                     Console.Error.WriteLine(ex.Message + "Deu erro");
                 }
             }
-
             return tables;
-        }
-
-        public void execMigration()
-        {
-
         }
     }
 }
