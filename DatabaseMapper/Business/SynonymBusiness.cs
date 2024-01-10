@@ -1,5 +1,4 @@
-﻿
-using DatabaseMapper.Models;
+﻿using DatabaseMapper.Models;
 using DatabaseMapper.Repositories;
 using DatabaseMapper.Utils;
 using System.Data.SqlClient;

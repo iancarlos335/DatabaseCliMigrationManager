@@ -10,7 +10,6 @@ class Program
     {
         try
         {
-            var tableBusiness = new TableBusiness();
             var fileManager = new FileManager();
             var connection = new DatabaseConnection().startConnection();
 
@@ -23,13 +22,32 @@ class Program
             if (!Directory.GetDirectories(sourcePath).Contains("scripts"))
                 fileManager.CreateDirectory(rootFolder);
 
-            List<Table> updatedTables = tableBusiness.createAndUpdateTableMigrations(connection, rootFolder);
+            List<Table> updatedTables = new TableBusiness().createAndUpdateTableMigrations(connection, rootFolder);
+            List<Procedure> updatedProcedures = new ProcedureBusiness().createAndUpdateProceduresMigrations(connection, rootFolder);
+            List<Function> updatedFunctions = new FunctionBusiness().createAndUpdateFunctionsMigrations(connection, rootFolder);
+            List<Trigger> updatedTriggers = new TriggerBusiness().createAndUpdateTriggersMigrations(connection, rootFolder);
+            List<View> updatedViews = new ViewBusiness().createAndUpdateViewsMigrations(connection, rootFolder);
+            List<Synonym> updatedSynonyms = new SynonymBusiness().createAndUpdateSynonymsMigrations(connection, rootFolder);
 
             Console.WriteLine("Tabelas alteradas:");
             foreach (var table in updatedTables)
-            {
                 Console.WriteLine(table.tableName);
-            }
+
+            Console.WriteLine("Procedures alteradas:");
+            foreach (var procedure in updatedFunctions)
+                Console.WriteLine(procedure.name);
+
+            Console.WriteLine("Funções alteradas:");
+            foreach (var function in updatedFunctions)
+                Console.WriteLine(function.name);
+
+            Console.WriteLine("Triggers alterados:");
+            foreach (var trigger in updatedTriggers)
+                Console.WriteLine(trigger.name);
+
+            Console.WriteLine("Views alteradas:");
+            foreach (var view in updatedViews)
+                Console.WriteLine(view.name);
 
             connection.Close();
         }
