@@ -49,7 +49,7 @@
         public string modify_date { get; set; }
     }
 
-    public class Synomn
+    public class Synonym
     {
         public string name { get; set; }
         public string modify_date { get; set;}

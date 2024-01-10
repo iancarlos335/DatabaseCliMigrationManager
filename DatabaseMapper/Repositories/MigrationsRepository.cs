@@ -66,9 +66,9 @@ namespace DatabaseMapper.Repositories
             return sqlConnection.Query<View>("SELECT name, modify_date FROM SYS.VIEWS").ToList();
         }
 
-        public List<Synomn> getAllSynomnsNamesAndModifyDates(SqlConnection sqlConnection)
+        public List<Synonym> getAllSynonymsNamesAndModifyDates(SqlConnection sqlConnection)
         {
-            return sqlConnection.Query<Synomn>("SELECT name, modify_date FROM SYS.SYNONYMS").ToList();
+            return sqlConnection.Query<Synonym>("SELECT name, modify_date FROM SYS.SYNONYMS").ToList(); //thats wrong
         }
 
         public string[] spHelpTextContent(SqlConnection sqlConnection, string databaseObject)

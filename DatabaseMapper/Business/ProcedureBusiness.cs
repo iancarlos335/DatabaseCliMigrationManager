@@ -6,7 +6,7 @@ using System.Text;
 
 namespace DatabaseMapper.Business
 {
-    public class ProceduresBusiness
+    public class ProcedureBusiness
     {
         public List<Procedure> proceduresMigrationScriptsImplementation(SqlConnection sqlConnection, List<Procedure> procedures, string rootFolder)
         {
@@ -23,7 +23,7 @@ namespace DatabaseMapper.Business
                 foreach (Procedure procedure in procedures)
                 {
                     string[] contentArray = new MigrationsRepository().spHelpTextContent(sqlConnection, procedure.name);
-                    
+
                     for (int i = 0; i < contentArray.Length; i++)
                     {
                         script.AppendLine(contentArray[i]);
@@ -32,7 +32,8 @@ namespace DatabaseMapper.Business
                     fileManager.CreateTextFile(proceduresPath, $@"Create_Procedure_{procedure.name}_{DateTime.UtcNow:yyyy-MM-dd_HH_mm_ss_fff}.sql", script.ToString());
                     script.Clear();
                 }
-            } catch (SqlException ex) 
+            }
+            catch (SqlException ex)
             {
                 Console.Error.WriteLine(ex.Message);
             }
@@ -43,7 +44,6 @@ namespace DatabaseMapper.Business
         public List<Procedure> createAndUpdateProceduresMigrations(SqlConnection sqlConnection, string rootFolder)
         {
             string proceduresPath = Path.Join(rootFolder, "procedures");
-
             var file = new FileManager();
 
             string firstLine;
@@ -54,13 +54,9 @@ namespace DatabaseMapper.Business
             var allProcedures = new MigrationsRepository().getAllProceduresNamesAndModifyDates(sqlConnection);
 
             if (!Directory.GetDirectories(rootFolder).Contains(proceduresPath))
-            {
                 procedures = proceduresMigrationScriptsImplementation(sqlConnection, procedures, rootFolder);
-            }
             else if (Directory.GetFiles(proceduresPath).Length == 0)
-            {
                 notCreatedProcedures = proceduresMigrationScriptsImplementation(sqlConnection, procedures, rootFolder);
-            }
             else
             {
                 var updatableProcedureNames = new List<string>();
@@ -88,21 +84,14 @@ namespace DatabaseMapper.Business
                         allProcedures.ForEach(p =>
                         {
                             if (!updatableProcedureNames.Contains(p.name))
-                            {
                                 notCreatedProcedures.Add(p);
-                            }
-
                         });
                     }
 
                     if (procedures.Count > 0)
-                    {
                         procedures = proceduresMigrationScriptsImplementation(sqlConnection, procedures, rootFolder);
-                    }
                     if (notCreatedProcedures.Count > 0)
-                    {
                         procedures = proceduresMigrationScriptsImplementation(sqlConnection, notCreatedProcedures, rootFolder);
-                    }
                 }
                 catch (Exception ex)
                 {

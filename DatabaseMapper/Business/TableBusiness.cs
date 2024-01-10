@@ -6,7 +6,7 @@ using System.Text;
 
 namespace DatabaseMapper.Business
 {
-    public class TablesBusiness
+    public class TableBusiness
     {
         public List<Table> tablesMigrationScriptsImplementation(SqlConnection sqlConnection, List<Table> tables, string rootFolder)
         {
